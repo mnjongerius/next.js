@@ -86,6 +86,8 @@ import { useFlightResponse } from './use-flight-response'
 import { isStaticGenBailoutError } from '../../client/components/static-generation-bailout'
 import { isInterceptionRouteAppPath } from '../future/helpers/interception-routes'
 import { getStackWithoutErrorMessage } from '../../lib/format-server-error'
+import { hasLoadingComponentInTree } from './has-loading-component-in-tree'
+import type { ComponentsType } from '../../build/webpack/loaders/next-app-loader'
 
 export type GetDynamicParamFromSegment = (
   // [slug] / [[slug]] / [...slug]
@@ -240,6 +242,24 @@ function makeGetDynamicParamFromSegment(
   }
 }
 
+/**
+ * Signals to `walkTreeWithFlightRouterState` that it does not need to call `createComponentTree`
+ */
+function shouldSkipComponentTree(
+  ctx: AppRenderContext,
+  components: ComponentsType
+): boolean {
+  return Boolean(
+    // loading.tsx has no effect on prefetching when PPR is enabled
+    !ctx.renderOpts.experimental.ppr &&
+      ctx.isPrefetch &&
+      !Boolean(components.loading) &&
+      (ctx.providedFlightRouterState ||
+        // If there is no flightRouterState, we need to check the entire loader tree, as otherwise we'll be only checking the root
+        !hasLoadingComponentInTree(ctx.componentMod.tree))
+  )
+}
+
 // Handle Flight render request. This is only used when client-side navigating. E.g. when you `router.push('/dashboard')` or `router.reload()`.
 async function generateFlight(
   ctx: AppRenderContext,
@@ -295,6 +315,7 @@ async function generateFlight(
         rootLayoutIncluded: false,
         asNotFound: ctx.isNotFoundPath || options?.asNotFound,
         metadataOutlet: <MetadataOutlet />,
+        shouldSkipComponentTree,
       })
     ).map((path) => path.slice(1)) // remove the '' (root) segment
   }
@@ -422,6 +443,27 @@ async function ReactServerApp({
     missingSlots,
   })
 
+  const initialFlightData = await walkTreeWithFlightRouterState({
+    ctx,
+    createSegmentPath: (child) => child,
+    loaderTreeToFilter: tree,
+    parentParams: {},
+    flightRouterState: ctx.providedFlightRouterState,
+    isFirst: true,
+    // For flight, render metadata inside leaf page
+    rscPayloadHead: (
+      // Adding requestId as react key to make metadata remount for each render
+      <MetadataTree key={ctx.requestId} />
+    ),
+    injectedCSS: new Set(),
+    injectedJS: new Set(),
+    injectedFontPreloadTags: new Set(),
+    rootLayoutIncluded: false,
+    asNotFound: ctx.isNotFoundPath,
+    metadataOutlet: <MetadataOutlet />,
+    shouldSkipComponentTree: () => true, // no need to create a component tree as we've already done that above
+  })
+
   return (
     <>
       {styles}
@@ -433,6 +475,13 @@ async function ReactServerApp({
         initialTree={initialTree}
         // This is the tree of React nodes that are seeded into the cache
         initialSeedData={seedData}
+        // This is the FlightDataPath that is used to seed the prefetch cache with the loaded page
+        initialFlightData={
+          // Avoid seeding the prefetch cache with the page if it could be handled by an interception route
+          // Technically we should be able to seed the cache for these pages, but to avoid the complexity of
+          // creating prefixed cache keys on both the server and client, we'll just omit it for now.
+          ctx.renderOpts.couldBeIntercepted ? [] : initialFlightData
+        }
         initialHead={
           <>
             {ctx.res.statusCode > 400 && (
@@ -522,6 +571,7 @@ async function ReactServerError({
       assetPrefix={ctx.assetPrefix}
       initialCanonicalUrl={urlPathname}
       initialTree={initialTree}
+      initialFlightData={[]}
       initialHead={head}
       globalErrorComponent={GlobalError}
       initialSeedData={initialSeedData}
