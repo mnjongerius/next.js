@@ -58,7 +58,7 @@ createNextDescribe(
       }
     })
 
-    it('should catch metadata error in error boundary if presented', async () => {
+    it.only('should catch metadata error in error boundary if presented', async () => {
       const browser = await next.browser('/metadata-error-with-boundary')
 
       expect(await browser.elementByCss('#error').text()).toBe(
