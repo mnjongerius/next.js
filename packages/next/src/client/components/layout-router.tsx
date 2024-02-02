@@ -399,6 +399,9 @@ function InnerLayoutRouter({
 
     // Check if there's already a pending request.
     let lazyData = childNode.lazyData
+    // TODO: Can this just be derived from `context.nextUrl`?
+    const fetchUrl = new URL(url, location.origin)
+
     if (lazyData === null) {
       /**
        * Router state with refetch marker added
@@ -406,7 +409,7 @@ function InnerLayoutRouter({
       // TODO-APP: remove ''
       const refetchTree = walkAddRefetch(['', ...segmentPath], fullTree)
       childNode.lazyData = lazyData = fetchServerResponse(
-        new URL(url, location.origin),
+        fetchUrl,
         refetchTree,
         context.nextUrl,
         buildId
@@ -417,12 +420,16 @@ function InnerLayoutRouter({
      * Flight response data
      */
     // When the data has not resolved yet `use` will suspend here.
-    const [flightData, overrideCanonicalUrl] = use(lazyData)
+    const serverResponse = use(lazyData)
 
     // setTimeout is used to start a new transition during render, this is an intentional hack around React.
     setTimeout(() => {
       startTransition(() => {
-        changeByServerResponse(fullTree, flightData, overrideCanonicalUrl)
+        changeByServerResponse({
+          previousTree: fullTree,
+          serverResponse,
+          url: fetchUrl,
+        })
       })
     })
     // Suspend infinitely as `changeByServerResponse` will cause a different part of the tree to be rendered.
