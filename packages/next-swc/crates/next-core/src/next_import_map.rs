@@ -786,6 +786,13 @@ async fn insert_next_shared_aliases(
         ),
     );
     import_map.insert_exact_alias(
+        "private-next-rsc-mod-ref-proxy",
+        request_to_import_mapping(
+            project_path,
+            "next/dist/build/webpack/loaders/next-flight-loader/module-proxy",
+        ),
+    );
+    import_map.insert_exact_alias(
         "private-next-rsc-action-client-wrapper",
         request_to_import_mapping(
             project_path,
