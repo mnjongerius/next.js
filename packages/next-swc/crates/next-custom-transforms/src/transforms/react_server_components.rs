@@ -367,6 +367,7 @@ impl<C: Comments> ReactServerComponents<C> {
     // comment to the top of the file.
     fn to_module_ref(&self, module: &mut Module, is_cjs: bool) {
         // Clear all the statements and module declarations.
+        /*
         module.body.clear();
 
         let proxy_ident = quote_ident!("createProxy");
@@ -422,6 +423,8 @@ impl<C: Comments> ReactServerComponents<C> {
             .into_iter(),
         );
 
+        */
+
         self.prepend_comment_node(module, is_cjs);
     }
 
@@ -471,6 +474,7 @@ impl<C: Comments> ReactServerComponents<C> {
         let is_error_file = Regex::new(r"[\\/]error\.(ts|js)x?$")
             .unwrap()
             .is_match(&self.filepath);
+
         if is_error_file {
             if let Some(app_dir) = &self.app_dir {
                 if let Some(app_dir) = app_dir.to_str() {

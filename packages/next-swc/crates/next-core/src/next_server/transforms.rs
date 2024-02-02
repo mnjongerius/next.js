@@ -1,7 +1,10 @@
 use anyhow::Result;
 use next_custom_transforms::transforms::strip_page_exports::ExportFilter;
 use turbo_tasks::Vc;
-use turbopack_binding::turbopack::turbopack::module_options::ModuleRule;
+use turbopack_binding::turbopack::{
+    ecmascript_plugin::transform::directives::client::ClientDirectiveTransformer,
+    turbopack::module_options::ModuleRule,
+};
 
 use crate::{
     mode::NextMode,
@@ -9,8 +12,8 @@ use crate::{
     next_config::NextConfig,
     next_server::context::ServerContextType,
     next_shared::transforms::{
-        get_next_dynamic_transform_rule, get_next_font_transform_rule, get_next_image_rule,
-        get_next_modularize_imports_rule, get_next_pages_transforms_rule,
+        get_ecma_transform_rule, get_next_dynamic_transform_rule, get_next_font_transform_rule,
+        get_next_image_rule, get_next_modularize_imports_rule, get_next_pages_transforms_rule,
         get_server_actions_transform_rule, next_amp_attributes::get_next_amp_attr_rule,
         next_cjs_optimizer::get_next_cjs_optimizer_rule,
         next_disallow_re_export_all_in_page::get_next_disallow_export_all_in_page_rule,
@@ -67,20 +70,56 @@ pub async fn get_next_server_transforms_rules(
             (false, None)
         }
         ServerContextType::AppRSC {
-            client_transition, ..
+            app_dir,
+            client_transition,
+            ecmascript_client_reference_transition_name,
+            ..
         } => {
             rules.push(get_server_actions_transform_rule(
                 ActionsTransform::Server,
                 mdx_rs,
             ));
 
-            rules.push(get_next_react_server_components_transform_rule(next_config, true).await?);
+            let client_directive_transformer =
+                if let Some(ecmascript_client_reference_transition_name) =
+                    ecmascript_client_reference_transition_name
+                {
+                    Some(Box::new(ClientDirectiveTransformer::new(
+                        ecmascript_client_reference_transition_name,
+                    )) as _)
+                } else {
+                    None
+                };
+
+            rules.push(
+                get_next_react_server_components_transform_rule(
+                    next_config,
+                    Some(app_dir),
+                    true,
+                    client_directive_transformer,
+                )
+                .await?,
+            );
 
             if let Some(client_transition) = client_transition {
                 rules.push(get_next_css_client_reference_transforms_rule(
                     client_transition,
                 ));
             }
+
+            /*
+            if let Some(ecmascript_client_reference_transition_name) =
+                ecmascript_client_reference_transition_name
+            {
+                rules.push(get_ecma_transform_rule(
+                    Box::new(ClientDirectiveTransformer::new(
+                        ecmascript_client_reference_transition_name,
+                    )),
+                    mdx_rs,
+                    true,
+                ));
+            } */
+
             (true, None)
         }
         ServerContextType::AppRoute { .. } => (false, None),
