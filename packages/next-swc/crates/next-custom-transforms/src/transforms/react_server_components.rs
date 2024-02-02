@@ -157,6 +157,8 @@ impl<C: Comments> VisitMut for ReactServerComponents<C> {
     noop_visit_mut_type!();
 
     fn visit_mut_module(&mut self, module: &mut Module) {
+        println!("rsc_transform {:#?}", self.filepath);
+
         let (is_client_entry, is_action_file, imports) =
             self.collect_top_level_directives_and_imports(module);
         let is_cjs = contains_cjs(module);
