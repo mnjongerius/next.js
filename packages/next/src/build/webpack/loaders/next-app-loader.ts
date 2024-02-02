@@ -495,6 +495,13 @@ function createAbsolutePath(appDir: string, pathToTurnAbsolute: string) {
   )
 }
 
+// We sort the app paths because to ensure they're deterministic. Since `resolveParallelSegments` traverses
+// these paths to determine, at each segment, where the "page" component is, we need to ensure that they are sorted
+// by segment depth so we don't accidentally skip over a segment.
+function sortAppPaths(paths: readonly string[]): string[] {
+  return paths.slice().sort((a, b) => a.split('/').length - b.split('/').length)
+}
+
 const nextAppLoader: AppLoader = async function nextAppLoader() {
   const loaderOptions = this.getOptions()
   const {
@@ -527,7 +534,7 @@ const nextAppLoader: AppLoader = async function nextAppLoader() {
   const extensions = pageExtensions.map((extension) => `.${extension}`)
 
   const normalizedAppPaths =
-    typeof appPaths === 'string' ? [appPaths] : appPaths || []
+    typeof appPaths === 'string' ? [appPaths] : sortAppPaths(appPaths ?? [])
 
   const resolveParallelSegments = (
     pathname: string

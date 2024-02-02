@@ -563,11 +563,6 @@ export async function createEntrypoints(
 
     // TODO: find a better place to do this
     normalizeCatchAllRoutes(appPathsPerRoute)
-
-    // Make sure to sort parallel routes to make the result deterministic.
-    appPathsPerRoute = Object.fromEntries(
-      Object.entries(appPathsPerRoute).map(([k, v]) => [k, v.sort()])
-    )
   }
 
   const getEntryHandler =

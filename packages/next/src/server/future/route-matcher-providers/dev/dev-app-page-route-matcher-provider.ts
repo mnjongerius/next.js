@@ -61,11 +61,6 @@ export class DevAppPageRouteMatcherProvider extends FileCacheRouteMatcherProvide
 
     normalizeCatchAllRoutes(appPaths)
 
-    // Make sure to sort parallel routes to make the result deterministic.
-    appPaths = Object.fromEntries(
-      Object.entries(appPaths).map(([k, v]) => [k, v.sort()])
-    )
-
     const matchers: Array<AppPageRouteMatcher> = []
     for (const filename of routeFilenames) {
       // Grab the cached values (and the appPaths).
