@@ -505,18 +505,6 @@ pub async fn get_server_module_options_context(
                     .flatten()
                     .collect();
 
-            if let Some(ecmascript_client_reference_transition_name) =
-                ecmascript_client_reference_transition_name
-            {
-                custom_source_transform_rules.push(get_ecma_transform_rule(
-                    Box::new(ClientDirectiveTransformer::new(
-                        ecmascript_client_reference_transition_name,
-                    )),
-                    enable_mdx_rs.is_some(),
-                    true,
-                ));
-            }
-
             base_next_server_rules.extend(custom_source_transform_rules.clone());
             base_next_server_rules.extend(source_transform_rules);
 

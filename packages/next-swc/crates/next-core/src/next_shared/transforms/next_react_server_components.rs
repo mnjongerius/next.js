@@ -53,8 +53,6 @@ impl NextJsReactServerComponents {
 #[async_trait]
 impl CustomTransformer for NextJsReactServerComponents {
     async fn transform(&self, program: &mut Program, ctx: &TransformContext<'_>) -> Result<()> {
-        let p = std::mem::replace(program, Program::Module(Module::dummy()));
-
         let file_name = if ctx.file_path_str.is_empty() {
             FileName::Anon
         } else {
@@ -73,7 +71,7 @@ impl CustomTransformer for NextJsReactServerComponents {
             },
         );
 
-        *program = p.fold_with(&mut visitor);
+        program.clone().fold_with(&mut visitor);
 
         Ok(())
     }
