@@ -11,7 +11,7 @@ import t from "other";
     if (null != o) {
         var a = [], l = !0, u = !1;
         try {
-            for(o = o.call(r); !(l = (e = o.next()).done) && (a.push(e.value), !t || a.length !== t); l = !0);
+            for(o = o.call(r); !(l = (e = o.next()).done) && (a.push(e.value), 1 !== a.length); l = !0);
         } catch (r) {
             u = !0, n = r;
         } finally{
@@ -25,10 +25,10 @@ import t from "other";
     }
 }(t, 1) || function(t, e) {
     if (t) {
-        if ("string" == typeof t) return r(t, e);
+        if ("string" == typeof t) return r(t, 1);
         var n = Object.prototype.toString.call(t).slice(8, -1);
         if ("Object" === n && t.constructor && (n = t.constructor.name), "Map" === n || "Set" === n) return Array.from(n);
-        if ("Arguments" === n || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return r(t, e);
+        if ("Arguments" === n || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return r(t, 1);
     }
 }(t, 1) || function() {
     throw TypeError("Invalid attempt to destructure non-iterable instance.\\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
