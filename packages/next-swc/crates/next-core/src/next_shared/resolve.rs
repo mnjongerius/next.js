@@ -121,13 +121,14 @@ pub(crate) enum InvalidImportType {
 pub struct InvalidImportModuleIssue {
     pub file_path: Vc<FileSystemPath>,
     pub import_type: InvalidImportType,
+    pub additional_message: Option<String>,
 }
 
 #[turbo_tasks::value_impl]
 impl Issue for InvalidImportModuleIssue {
     #[turbo_tasks::function]
     fn severity(&self) -> Vc<IssueSeverity> {
-        IssueSeverity::Warning.into()
+        IssueSeverity::Error.into()
     }
 
     #[turbo_tasks::function]
@@ -158,14 +159,21 @@ impl Issue for InvalidImportModuleIssue {
             }
         };
 
-        Ok(Vc::cell(Some(
-            StyledString::Text(message.to_string()).cell(),
-        )))
+        let mut messages = vec![StyledString::Text(message.to_string())];
+        if let Some(ref additional_message) = self.additional_message {
+            messages.push(StyledString::Text(additional_message.to_string()));
+        }
+
+        Ok(Vc::cell(Some(StyledString::Line(messages).cell())))
     }
 }
 
-/// A resolve plugin detects import to the `client-only`/`server-only`, then
-/// emits an error according to the context.
+/// A resolver plugin detects import to the `client-only`/`server-only`, then
+/// emits a build-time error according to the context.
+/// In the server context, it expects InvalidImportType::ClientOnly which
+/// disallows `client-only` imports.
+/// In the client context it expects InvalidImportType::ServerOnly which
+/// disallows `server-only` imports.
 #[turbo_tasks::value]
 pub(crate) struct InvalidImportResolvePlugin {
     root: Vc<FileSystemPath>,
@@ -190,15 +198,15 @@ impl ResolvePlugin for InvalidImportResolvePlugin {
     #[turbo_tasks::function]
     async fn after_resolve(
         &self,
-        _fs_path: Vc<FileSystemPath>,
+        fs_path: Vc<FileSystemPath>,
         file_path: Vc<FileSystemPath>,
         _reference_type: Value<ReferenceType>,
         request: Vc<Request>,
     ) -> Result<Vc<ResolveResultOption>> {
         let imports = if self.import_type == InvalidImportType::ClientOnly {
-            &*CLIENT_ONLY_IMPORTS
-        } else {
             &*SERVER_ONLY_IMPORTS
+        } else {
+            &*CLIENT_ONLY_IMPORTS
         };
 
         if let Request::Module {
@@ -208,10 +216,29 @@ impl ResolvePlugin for InvalidImportResolvePlugin {
         } = &*request.await?
         {
             if imports.contains(module.as_str()) {
-                UnsupportedModuleIssue {
+                InvalidImportModuleIssue {
                     file_path,
-                    package: module.into(),
-                    package_path: None,
+                    import_type: self.import_type,
+                    additional_message: None,
+                }
+                .cell()
+                .emit();
+            }
+
+            if self.import_type == InvalidImportType::ClientOnly && module.as_str() == "styled-jsx"
+            {
+                let raw_fs_path = &*fs_path.await?;
+                let path = raw_fs_path.path.to_string();
+
+                InvalidImportModuleIssue {
+                    file_path,
+                    import_type: self.import_type,
+                    additional_message: Some(format!(
+                        "The error was caused by using 'styled-jsx' in '{}'. It only works in a \
+                         Client Component but none of its parents are marked with \"use client\", \
+                         so they're Server Components by default.",
+                        path
+                    )),
                 }
                 .cell()
                 .emit();
@@ -222,6 +249,7 @@ impl ResolvePlugin for InvalidImportResolvePlugin {
                     InvalidImportModuleIssue {
                         file_path,
                         import_type: self.import_type,
+                        additional_message: None,
                     }
                     .cell()
                     .emit();

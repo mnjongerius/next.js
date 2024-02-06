@@ -48,8 +48,8 @@ use crate::{
     },
     next_shared::{
         resolve::{
-            ModuleFeatureReportResolvePlugin, NextSharedRuntimeResolvePlugin,
-            UnsupportedModulesResolvePlugin,
+            InvalidImportResolvePlugin, InvalidImportType, ModuleFeatureReportResolvePlugin,
+            NextSharedRuntimeResolvePlugin, UnsupportedModulesResolvePlugin,
         },
         transforms::{
             emotion::get_emotion_transform_rule, relay::get_relay_transform_rule,
@@ -148,6 +148,9 @@ pub async fn get_client_resolve_options_context(
         get_next_client_import_map(project_path, ty, next_config, execution_context);
     let next_client_fallback_import_map = get_next_client_fallback_import_map(ty);
     let next_client_resolved_map = get_next_client_resolved_map(project_path, project_path, mode);
+    let invalid_module_import_resolve_plugin =
+        InvalidImportResolvePlugin::new(project_path, InvalidImportType::ServerOnly);
+
     let module_options_context = ResolveOptionsContext {
         enable_node_modules: Some(project_path.root().resolve().await?),
         custom_conditions: vec![mode.node_env().to_string()],
@@ -171,6 +174,7 @@ pub async fn get_client_resolve_options_context(
             foreign_code_context_condition(next_config, project_path).await?,
             module_options_context.clone().cell(),
         )],
+        plugins: vec![Vc::upcast(invalid_module_import_resolve_plugin)],
         ..module_options_context
     }
     .cell())
