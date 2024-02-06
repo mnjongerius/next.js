@@ -791,10 +791,10 @@ pub fn project_update_info_subscribe(
 #[derive(Debug)]
 #[napi(object)]
 pub struct StackFrame {
-    pub column: Option<u32>,
-    pub file: String,
     pub is_server: bool,
-    pub line: u32,
+    pub file: String,
+    pub line: Option<u32>,
+    pub column: Option<u32>,
     pub method_name: Option<String>,
 }
 
@@ -875,26 +875,42 @@ pub async fn project_trace_source(
                 }
             };
 
-            let token = map
-                .lookup_token(frame.line as usize, frame.column.unwrap_or(0) as usize)
-                .await?
-                .clone_value()
-                .context("Unable to trace token from sourcemap")?;
-
-            let Token::Original(token) = token else {
+            let Some(line) = frame.line else {
                 return Ok(None);
             };
 
-            let Some(source_file) = token.original_file.strip_prefix("/turbopack/[project]/")
-            else {
-                bail!("Original file outside project")
+            let token = map
+                .lookup_token(line as usize, frame.column.unwrap_or(0) as usize)
+                .await?;
+
+            let (original_file, line, column, name) = match &*token {
+                Token::Original(token) => (
+                    &token.original_file,
+                    Some(token.original_line as u32),
+                    Some(token.original_column as u32),
+                    token.name.clone(),
+                ),
+                Token::Synthetic(token) => {
+                    let Some(file) = &token.guessed_original_file else {
+                        return Ok(None);
+                    };
+                    (file, None, None, None)
+                }
             };
+
+            let Some(source_file) = original_file.strip_prefix("/turbopack/") else {
+                bail!("Original file ({}) outside project", original_file)
+            };
+
+            let source_file = source_file
+                .strip_prefix("[project]/")
+                .unwrap_or(source_file);
 
             Ok(Some(StackFrame {
                 file: source_file.to_string(),
-                method_name: token.name,
-                line: token.original_line as u32,
-                column: Some(token.original_column as u32),
+                method_name: name,
+                line,
+                column,
                 is_server: frame.is_server,
             }))
         })

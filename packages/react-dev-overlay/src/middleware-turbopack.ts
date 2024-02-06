@@ -19,7 +19,7 @@ interface TurbopackStackFrame {
   column: number | null
   file: string
   isServer: boolean
-  line: number
+  line: number | null
   methodName: string | null
 }
 
@@ -86,7 +86,7 @@ export async function createOriginalStackFrame(
             traced.source,
             {
               start: {
-                line: traced.frame.lineNumber,
+                line: traced.frame.lineNumber ?? 0,
                 column: traced.frame.column ?? 0,
               },
             },
@@ -157,7 +157,7 @@ export function getOverlayMiddleware(project: Project) {
       }
 
       try {
-        launchEditor(filePath, frame.line, frame.column ?? 1)
+        launchEditor(filePath, frame.line ?? 1, frame.column ?? 0)
       } catch (err) {
         console.log('Failed to launch editor:', err)
         res.statusCode = 500
