@@ -21,6 +21,7 @@ interface TurbopackStackFrame {
   isServer: boolean
   line: number | null
   methodName: string | null
+  isInternal?: boolean
 }
 
 const currentSourcesByFile: Map<string, Promise<string | null>> = new Map()
@@ -41,7 +42,7 @@ async function batchedTraceSource(
 
   let source
   // Don't show code frames for node_modules. These can also often be large bundled files.
-  if (!sourceFrame.file.includes('node_modules')) {
+  if (!sourceFrame.file.includes('node_modules') && !sourceFrame.isInternal) {
     let sourcePromise = currentSourcesByFile.get(sourceFrame.file)
     if (!sourcePromise) {
       sourcePromise = project.getSourceForAsset(sourceFrame.file)
@@ -80,7 +81,7 @@ export async function createOriginalStackFrame(
   return {
     originalStackFrame: traced.frame,
     originalCodeFrame:
-      traced.source === null || traced.frame.file.includes('node_modules')
+      traced.source === null
         ? null
         : codeFrameColumns(
             traced.source,
